@@ -789,11 +789,12 @@ class Window(Tk):
 		sheet = wb.sheetnames[0]
 		ws = wb[sheet]
 		header = self.check_header.get()
+		header = header.strip()
 
 		xl = pd.ExcelFile(file)
 		df = xl.parse(sheet)	
 
-		cols = list(df.columns)
+		cols = [col.strip() for col in list(df.columns)]
 		
 		if header in cols:
 			index = cols.index( header )
@@ -823,43 +824,45 @@ class Window(Tk):
 
 	def compareCSV(self, file, name):
 		header = self.check_header.get()	
-
-		data = pd.read_csv(file)
-		columns = data.columns.values	
+		header = header.strip()
+		data = pd.read_csv(file, encoding='latin-1')
+		columns = [col.strip() for col in data.columns.values]	
 		raw_csv = open( file )
 		df = pd.DataFrame([raw_csv], index = None)
 		
 		max_length = len(data)
-		
-		for i in range(max_length):
-			row = list(df[i+1])
-			row = row[0].replace("\n", "")			
-			splittedRow = row.split(',')
-			serialized = dict()			
-			dataSet = set()
-			for col in range(len(columns)):
-				serialized.setdefault(columns[col], splittedRow[col])						
-				dataSet = (*dataSet, splittedRow[col])
-			self.checking_progress.set('CHECKED %.2f%% OF'%(i * 100 / max_length))
+		csv_data = []
+		if header in columns:
 
+			for i in range(max_length):
+				row = list(df[i+1])
+				row = row[0].replace("\n", "")			
+				splittedRow = row.split(',')
+				serialized = dict()			
+				dataSet = set()
+				for col in range(len(columns)):
+					serialized.setdefault(columns[col], splittedRow[col])						
+					dataSet = (*dataSet, splittedRow[col])
+				self.checking_progress.set('CHECKED %.2f%% OF'%(i * 100 / max_length))
+
+				
+				key = serialized[header]
+				keys = self.compareData.keys()
+				if key in keys:				
+					csv_data.append( list((*dataSet, "DUPLICATED")) )				
+				else:
+					self.compareData.setdefault( key, 1 )
+					csv_data.append( list((*dataSet, "")) )
+				self.update()
 			
-			key = serialized[header]
-			keys = self.compareData.keys()
-			if key in keys:				
-				csv_data.append( list((*dataSet, "DUPLICATED")) )				
-			else:
-				self.compareData.setdefault( key, 1 )
-				csv_data.append( list((*dataSet, "")) )
-			self.update()
-		
-		check_folder_path = self.check_folder_path.get()
-		CHECK_RESULT_PATH = path.join( check_folder_path, "CHECK_RESULT" )
-		if not path.isdir( CHECK_RESULT_PATH ):
-			mkdir(CHECK_RESULT_PATH)
+			check_folder_path = self.check_folder_path.get()
+			CHECK_RESULT_PATH = path.join( check_folder_path, "CHECK_RESULT" )
+			if not path.isdir( CHECK_RESULT_PATH ):
+				mkdir(CHECK_RESULT_PATH)
 
-		export_file_name = path.join( CHECK_RESULT_PATH, name )
-		df = pd.DataFrame(csv_data)
-		df.columns = [*columns, "CHECK_RESULT"]
-		df.to_csv(export_file_name)
+			export_file_name = path.join( CHECK_RESULT_PATH, name )
+			df = pd.DataFrame(csv_data)
+			df.columns = [*columns, "CHECK_RESULT"]
+			df.to_csv(export_file_name)
 
 __all__ = [ 'Window' ]
